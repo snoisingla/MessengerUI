@@ -7,8 +7,9 @@ export default class LogIn extends React.Component {
     this.state = {
       name: "",
       contactNumber: "",
-      status: "",
-      pageState: "signIn"
+      errorLabel: "",
+      pageType: "signIn",
+      otp: ""
     };
 
     this.handleChange = this.handleChange.bind(this);
@@ -16,7 +17,7 @@ export default class LogIn extends React.Component {
     this.handleSignIn = this.handleSignIn.bind(this);
     this.handleVerifyOtp = this.handleVerifyOtp.bind(this);
     this.handleResendOtp = this.handleResendOtp.bind(this);
-    this.handlePageState = this.handlePageState.bind(this);
+    this.userClickedOnSignUp = this.userClickedOnSignUp.bind(this);
   }
 
   handleChange(event) {
@@ -39,9 +40,9 @@ export default class LogIn extends React.Component {
       }
     }).then(response => {
       if (response.status === 200) {
-        this.setState({ pageState: "verifyOtp" });
+        this.setState({ pageType: "verifyOtp" });
       } else {
-        this.setState({ pageState: "userAlreadyExists" });
+        this.setState({ errorLabel: "User already exists." });
       }
     });
     event.preventDefault();
@@ -56,8 +57,9 @@ export default class LogIn extends React.Component {
       .then(response => response.json())
       .then(response => {
         if (response === false) {
-          this.setState({ pageState: "userNotExists" });
+          this.setState({ errorLabel: "User doesnot exists. Please Sign Up." });
         } else {
+          this.setState({ pageType: "verifyOtp" });
           this.handleResendOtp(event);
         }
       });
@@ -67,6 +69,7 @@ export default class LogIn extends React.Component {
   handleVerifyOtp(event) {
     var url = "http://localhost:8080/users/verify";
     var data = { contactNumber: this.state.contactNumber, otp: this.state.otp };
+    localStorage.setItem("contactNumber", this.state.contactNumber);
 
     fetch(url, {
       method: "POST",
@@ -78,10 +81,12 @@ export default class LogIn extends React.Component {
       .then(response => response.json())
       .then(response => {
         if (response.verified === true) {
-          this.setState({ pageState: "userVerified" });
           localStorage.setItem("authToken", response.authToken);
+          this.setState({ pageType: "userVerified" });
         } else {
-          this.setState({ pageState: "otpVerficationFailed" });
+          this.setState({
+            errorLabel: "Invalid Otp entered. Please try again"
+          });
         }
       });
     event.preventDefault();
@@ -98,44 +103,27 @@ export default class LogIn extends React.Component {
       }
     }).then(response => {
       if (response.status === 200) {
-        this.setState({ pageState: "otpResendSuccessfull" });
+        this.setState({ errorLabel: "Otp has been sent successfully" });
       } else {
-        this.setState({ pageState: "otpResendFailed" });
+        this.setState({ errorLabel: "Otp sending failed " });
       }
     });
     event.preventDefault();
   }
 
-  handlePageState(event) {
-    this.setState({ pageState: "signUp" });
-    event.preventDefault();
-  }
-
-  getErrorLabel() {
-    const pageState = this.state.pageState;
-    if (pageState === "userAlreadyExists") {
-      return <label>User already exists.</label>;
-    } else if (pageState === "userNotExists") {
-      return <label>User doesnot exists. Please Sign Up.</label>;
-    } else if (pageState === "otpVerficationFailed") {
-      return <label> Invalid Otp entered. Please try again </label>;
-    } else if (pageState === "otpResendSuccessfull") {
-      return <label> Otp has been sent successfully </label>;
-    } else if (pageState === "otpResendFailed") {
-      //ommit
-      return <label> Otp sending failed </label>;
-    }
+  userClickedOnSignUp() {
+    this.setState({ errorLabel: "" });
+    this.setState({ pageType: "signUp" });
   }
 
   render() {
-    const pageState = this.state.pageState;
+    const pageType = this.state.pageType;
     const contact = this.state.contactNumber;
+    const errorLabel = this.state.errorLabel;
 
-    console.log(pageState);
-
-    if (pageState === "signIn" || pageState === "userNotExists") {
+    if (pageType === "signIn") {
       return (
-        <form>
+        <div>
           <label> Contact Number </label>
           <input
             type="tel"
@@ -144,20 +132,14 @@ export default class LogIn extends React.Component {
             onChange={this.handleChange}
           />
           <br />
-          <input type="submit" value="Sign In" onClick={this.handleSignIn} />
-          <input
-            type="submit"
-            value="New User"
-            onClick={this.handlePageState}
-          />
-          {this.getErrorLabel()}
-        </form>
+          <button onClick={this.handleSignIn}>Sign In</button>
+          <button onClick={this.userClickedOnSignUp}>New User</button>
+          {errorLabel}
+        </div>
       );
-    }
-
-    if (pageState === "signUp" || pageState === "userAlreadyExists") {
+    } else if (pageType === "signUp") {
       return (
-        <form>
+        <div>
           <label>
             Enter your name
             <input type="text" name="name" onChange={this.handleChange} />
@@ -173,40 +155,25 @@ export default class LogIn extends React.Component {
           </label>
 
           <br />
-          <input type="submit" value="Sign Up" onClick={this.handleSignUp} />
-          {this.getErrorLabel()}
-        </form>
+          <button onClick={this.handleSignUp}>Sign Up</button>
+          {errorLabel}
+        </div>
       );
-    } else if (
-      pageState === "verifyOtp" ||
-      pageState === "otpVerficationFailed" ||
-      pageState === "otpResendSuccessfull" ||
-      pageState === "otpResendFailed"
-    ) {
+    } else if (pageType === "verifyOtp") {
       return (
-        <form>
+        <div>
           <label>Otp has sent to {contact} </label>
           <br />
           <label>Enter Otp</label>
           <input type="number" name="otp" onChange={this.handleChange} />
-
           <br />
-          <input
-            type="submit"
-            value="Verify otp"
-            onClick={this.handleVerifyOtp}
-          />
-
-          {this.getErrorLabel()}
+          <button onClick={this.handleVerifyOtp}>Verify Otp</button>
+          {errorLabel}
           <br />
-          <input
-            type="submit"
-            value="Resend Otp"
-            onClick={this.handleResendOtp}
-          />
-        </form>
+          <button onClick={this.handleResendOtp}>Resend Otp</button>
+        </div>
       );
-    } else if (pageState === "userVerified") {
+    } else if (pageType === "userVerified") {
       return <Redirect to="/" />;
     }
   }
